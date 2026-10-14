@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#101827">
+<title>Team Mahendra AI</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #101827;
+    color: white;
+    padding: 20px;
+}
+
+header {
+    text-align: center;
+    padding: 20px 0;
+}
+
+.logo {
+    font-size: 42px;
+}
+
+h1 {
+    color: #55e6a5;
+    margin-bottom: 8px;
+}
+
+.subtitle {
+    color: #bdc7d8;
+    font-size: 14px;
+}
+
+.card {
+    background: #1d293b;
+    border-radius: 18px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    color: #bdc7d8;
+}
+
+select, button {
+    width: 100%;
+    padding: 14px;
+    border-radius: 10px;
+    border: none;
+    font-size: 16px;
+    margin-bottom: 14px;
+}
+
+select {
+    background: #303e53;
+    color: white;
+}
+
+button {
+    background: #55e6a5;
+    color: #102018;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button.secondary {
+    background: #34445c;
+    color: white;
+}
+
+#status {
+    color: #55e6a5;
+    text-align: center;
+    min-height: 24px;
+}
+
+#result {
+    background: #101827;
+    border-radius: 12px;
+    padding: 15px;
+    min-height: 90px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+footer {
+    text-align: center;
+    color: #bdc7d8;
+    font-size: 12px;
+    padding: 25px 0;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <div class="logo">🌐</div>
+    <h1>Team Mahendra AI</h1>
+    <div class="subtitle">
+        Your Voice. Every Language.
+    </div>
+</header>
+
+<div class="card">
+
+    <label for="source">Speak in</label>
+    <select id="source">
+        <option value="auto">Auto Detect (English speech recognition)</option>
+        <option value="ta-IN">Tamil</option>
+        <option value="en-IN">English</option>
+        <option value="ml-IN">Malayalam</option>
+        <option value="ne-NP">Nepali</option>
+    </select>
+
+    <label for="target">Translate into</label>
+    <select id="target">
+        <option value="ta">Tamil</option>
+        <option value="en">English</option>
+        <option value="ml">Malayalam</option>
+        <option value="ne">Nepali</option>
+    </select>
+
+    <button onclick="startListening()">🎤 Start Speaking</button>
+
+    <button class="secondary" onclick="stopListening()">
+        ⏹ Stop Listening
+    </button>
+
+    <div id="status">Ready to start</div>
+
+    <h3>Recognized Speech</h3>
+    <div id="original" class="result"></div>
+
+    <h3>Translation</h3>
+    <div id="result">Your translation will appear here.</div>
+
+    <button class="secondary" onclick="speakTranslation()">
+        🔊 Speak Translation
+    </button>
+
+</div>
+
+<footer>
+    Team Mahendra AI · Free Translator
+</footer>
+
+<script>
+let recognition;
+let originalText = "";
+let translatedText = "";
+let timer;
+
+function startListening() {
+    const SpeechRecognition =
+        window.SpeechRecognition ||
+        window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+        document.getElementById("status").textContent =
+            "Speech recognition is not supported in this browser.";
+        return;
+    }
+
+    recognition = new SpeechRecognition();
+    recognition.lang =
+        document.getElementById("source").value === "auto"
+        ? "en-IN"
+        : document.getElementById("source").value;
+
+    recognition.continuous = true;
+    recognition.interimResults = false;
+
+    recognition.onresult = function(event) {
+        const transcript =
+            event.results[event.results.length - 1][0].transcript;
+
+        originalText += transcript + " ";
+
+        document.getElementById("original").textContent =
+            originalText;
+
+        translateText(transcript);
+    };
+
+    recognition.onerror = function() {
+        document.getElementById("status").textContent =
+            "Microphone error. Check permission and internet.";
+    };
+
+    recognition.onend = function() {
+        if (recognition && recognition._keepListening) {
+            try { recognition.start(); } catch(e) {}
+        }
+    };
+
+    recognition._keepListening = true;
+    originalText = "";
+
+    document.getElementById("status").textContent =
+        "Listening...";
+
+    try {
+        recognition.start();
+    } catch(e) {
+        document.getElementById("status").textContent =
+            "Already listening. Please try again.";
+    }
+}
+
+function stopListening() {
+    if (recognition) {
+        recognition._keepListening = false;
+        recognition.stop();
+    }
+
+    clearTimeout(timer);
+
+    document.getElementById("status").textContent =
+        "Stopped";
+}
+
+async function translateText(text) {
+    const target =
+        document.getElementById("target").value;
+
+    document.getElementById("status").textContent =
+        "Translating...";
+
+    try {
+        const url =
+            "https://translate.googleapis.com/translate_a/single" +
+            "?client=gtx&sl=auto&tl=" + target +
+            "&dt=t&q=" + encodeURIComponent(text);
+
+        const response = await fetch(url);
+
+        if (!response.ok) throw new Error("Translation failed");
+
+        const data = await response.json();
+
+        translatedText =
+            data[0].map(part => part[0]).join("");
+
+        document.getElementById("result").textContent =
+            translatedText;
+
+        document.getElementById("status").textContent =
+            "Translation ready";
+    } catch (error) {
+        document.getElementById("status").textContent =
+            "Translation failed. Check internet connection.";
+    }
+}
+
+function speakTranslation() {
+    if (!translatedText) {
+        document.getElementById("status").textContent =
+            "Translate some speech first.";
+        return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(
+        translatedText
+    );
+
+    const languages = {
+        ta: "ta-IN",
+        en: "en-US",
+        ml: "ml-IN",
+        ne: "ne-NP"
+    };
+
+    utterance.lang =
+        languages[document.getElementById("target").value];
+
+    speechSynthesis.speak(utterance);
+}
+</script>
+
+</body>
+</html>
